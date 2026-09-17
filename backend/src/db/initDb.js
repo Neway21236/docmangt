@@ -7,6 +7,7 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 async function initDatabase() {
   console.log('--- DMS Database Initialization ---');
 
+  const targetDb = process.env.DATABASE_URL ? 'Cloud PostgreSQL' : (process.env.PGDATABASE || 'dms_db');
   let appClient;
 
   if (process.env.DATABASE_URL) {
@@ -22,7 +23,6 @@ async function initDatabase() {
       user: process.env.PGUSER || 'postgres',
       password: process.env.PGPASSWORD || 'postgres',
     };
-    const targetDb = process.env.PGDATABASE || 'dms_db';
     console.log(`Target database: ${targetDb} on ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user}`);
 
     // Step 1: Connect to default postgres DB to ensure target database exists
