@@ -1538,6 +1538,7 @@ export default function DocumentsPage({
                       {displayedDocuments.map(doc => {
                         const isSelected = selectedDocIds.has(doc.id) || selectedDocForDetails?.id === doc.id;
                         const rowPaddingClass = viewDensity === 'compact' ? 'py-1.5 px-3' : 'py-2.5 px-3';
+                        const typeMeta = getFileTypeMeta(doc.mime_type, doc.original_filename);
 
                         return (
                           <tr
