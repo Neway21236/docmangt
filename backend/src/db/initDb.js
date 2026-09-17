@@ -4,53 +4,63 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
-const dbConfig = {
-  host: process.env.PGHOST || 'localhost',
-  port: parseInt(process.env.PGPORT || '5432', 10),
-  user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || 'postgres',
-};
-
-const targetDb = process.env.PGDATABASE || 'dms_db';
-
 async function initDatabase() {
   console.log('--- DMS Database Initialization ---');
-  console.log(`Target database: ${targetDb} on ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user}`);
 
-  // Step 1: Connect to default postgres DB to ensure target database exists
-  const adminClient = new Client({
-    ...dbConfig,
-    database: 'postgres',
-  });
+  let appClient;
 
-  try {
-    await adminClient.connect();
-    console.log('Connected to PostgreSQL server.');
+  if (process.env.DATABASE_URL) {
+    console.log('Connecting via DATABASE_URL to cloud PostgreSQL...');
+    appClient = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false },
+    });
+  } else {
+    const dbConfig = {
+      host: process.env.PGHOST || 'localhost',
+      port: parseInt(process.env.PGPORT || '5432', 10),
+      user: process.env.PGUSER || 'postgres',
+      password: process.env.PGPASSWORD || 'postgres',
+    };
+    const targetDb = process.env.PGDATABASE || 'dms_db';
+    console.log(`Target database: ${targetDb} on ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user}`);
 
-    const checkDbRes = await adminClient.query(
-      `SELECT 1 FROM pg_database WHERE datname = $1;`,
-      [targetDb]
-    );
+    // Step 1: Connect to default postgres DB to ensure target database exists
+    const adminClient = new Client({
+      ...dbConfig,
+      database: 'postgres',
+      ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
+    });
 
-    if (checkDbRes.rowCount === 0) {
-      console.log(`Database "${targetDb}" does not exist. Creating it now...`);
-      await adminClient.query(`CREATE DATABASE "${targetDb}";`);
-      console.log(`Database "${targetDb}" created successfully.`);
-    } else {
-      console.log(`Database "${targetDb}" already exists.`);
+    try {
+      await adminClient.connect();
+      console.log('Connected to PostgreSQL server.');
+
+      const checkDbRes = await adminClient.query(
+        `SELECT 1 FROM pg_database WHERE datname = $1;`,
+        [targetDb]
+      );
+
+      if (checkDbRes.rowCount === 0) {
+        console.log(`Database "${targetDb}" does not exist. Creating it now...`);
+        await adminClient.query(`CREATE DATABASE "${targetDb}";`);
+        console.log(`Database "${targetDb}" created successfully.`);
+      } else {
+        console.log(`Database "${targetDb}" already exists.`);
+      }
+    } catch (err) {
+      console.error('Error checking/creating database with admin client:', err.message);
+      throw err;
+    } finally {
+      await adminClient.end();
     }
-  } catch (err) {
-    console.error('Error checking/creating database with admin client:', err.message);
-    throw err;
-  } finally {
-    await adminClient.end();
-  }
 
-  // Step 2: Connect to target database and execute init.sql schema
-  const appClient = new Client({
-    ...dbConfig,
-    database: targetDb,
-  });
+    appClient = new Client({
+      ...dbConfig,
+      database: targetDb,
+      ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
+    });
+  }
 
   try {
     await appClient.connect();
