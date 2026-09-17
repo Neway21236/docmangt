@@ -44,15 +44,37 @@ class StorageService {
   }
 }
 
+const os = require('os');
+
 /**
  * LocalStorageService implements StorageService using local filesystem.
  */
 class LocalStorageService extends StorageService {
   constructor(baseUploadDir = null) {
     super();
-    this.baseUploadDir = baseUploadDir || path.resolve(__dirname, '../../../uploads');
-    if (!fs.existsSync(this.baseUploadDir)) {
-      fs.mkdirSync(this.baseUploadDir, { recursive: true });
+
+    if (baseUploadDir) {
+      this.baseUploadDir = baseUploadDir;
+    } else if (process.env.UPLOAD_DIR) {
+      this.baseUploadDir = path.resolve(process.env.UPLOAD_DIR);
+    } else if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      // In serverless environments (Vercel / Lambda), /var/task is read-only.
+      // os.tmpdir() (/tmp) is the only writable directory.
+      this.baseUploadDir = path.join(os.tmpdir(), 'dms_uploads');
+    } else {
+      this.baseUploadDir = path.resolve(__dirname, '../../../uploads');
+    }
+
+    try {
+      if (!fs.existsSync(this.baseUploadDir)) {
+        fs.mkdirSync(this.baseUploadDir, { recursive: true });
+      }
+    } catch (err) {
+      // Fallback to os.tmpdir() if default directory is read-only (EROFS)
+      this.baseUploadDir = path.join(os.tmpdir(), 'dms_uploads');
+      if (!fs.existsSync(this.baseUploadDir)) {
+        fs.mkdirSync(this.baseUploadDir, { recursive: true });
+      }
     }
   }
 
