@@ -73,10 +73,10 @@ app.use((err, req, res, next) => {
 
 // Server start if main
 if (require.main === module) {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`===========================================`);
-    console.log(`🚀 DMS Backend running on http://localhost:${PORT}`);
-    console.log(`   Health: http://localhost:${PORT}/api/health`);
+    console.log(`🚀 DMS Backend running on http://0.0.0.0:${PORT}`);
+    console.log(`   Health: http://0.0.0.0:${PORT}/api/health`);
     console.log(`===========================================`);
     startExpiryJob();
   });
